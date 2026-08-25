@@ -550,7 +550,7 @@
 <body>
 <div class="container">
 <div class="header">
-    <h1 id="header-title">饭店原材料库存管理系统</h1><span id="app-version" style="font-size:13px;opacity:0.9;margin-left:10px;font-weight:400;">v1.0.0</span>
+    <h1 id="header-title">饭店原材料库存管理系统</h1><span id="app-version" style="font-size:13px;opacity:0.9;margin-left:10px;font-weight:400;">v1.0.1</span>
     <div class="header-right">
         <div class="user-settings">
             <input type="text" id="user-name-input" placeholder="输入姓名...">
@@ -576,9 +576,6 @@
     <div class="tab" data-tab="summary"><span id="tab-summary">实时库存总表</span></div>
     <div class="tab" data-tab="inbound"><span id="tab-inbound">入库管理</span></div>
     <div class="tab" data-tab="outbound"><span id="tab-outbound">出库管理</span></div>
-    <div class="tab" data-tab="month-outbound"><span id="tab-month-outbound">月出库</span></div>
-    <div class="tab" data-tab="quarter-outbound"><span id="tab-quarter-outbound">季度出库</span></div>
-    <div class="tab" data-tab="year-outbound"><span id="tab-year-outbound">年出库</span></div>
     <div class="tab" data-tab="log"><span id="tab-log">操作日志</span></div>
 </div>
 
@@ -594,17 +591,14 @@
             <button class="sub-tab active" data-subtab="all"   id="ov-subtab-all">全部</button>
             <button class="sub-tab"        data-subtab="XSB"   id="ov-subtab-XSB">新设备</button>
             <button class="sub-tab"        data-subtab="SB"    id="ov-subtab-SB">旧设备</button>
-            <button class="sub-tab"        data-subtab="PJ"    id="ov-subtab-PJ">配件</button>
             <button class="sub-tab"        data-subtab="BC"    id="ov-subtab-BC">包材</button>
             <button class="sub-tab"        data-subtab="SC"    id="ov-subtab-SC">食材</button>
-            <button class="sub-tab"        data-subtab="ZC"    id="ov-subtab-ZC">自采</button>
         </div>
         <div class="stats-cards">
         <div class="source-filter" id="inventory-source-filter">
             <button class="source-filter-btn active" data-source="all" id="src-overview-all">全部</button>
             <button class="source-filter-btn" data-source="cn" id="src-overview-cn">中国集装箱</button>
             <button class="source-filter-btn" data-source="cn-log" id="src-overview-cnlog">中国物流</button>
-            <button class="source-filter-btn" data-source="ru" id="src-overview-ru">俄罗斯本地</button>
         </div>
             <div class="stat-card" id="stat-card-total" onclick="setInventoryFilter('all')"><h3 id="stat-total-label">总物料数</h3><div class="number" id="stat-total">0</div></div>
             <div class="stat-card" id="stat-card-low" onclick="setInventoryFilter('low')"><h3 id="stat-low-label">库存不足</h3><div class="number" id="stat-low">0</div></div>
@@ -622,16 +616,13 @@
             <button class="sub-tab active" data-subtab="all"   id="subtab-all">全部</button>
             <button class="sub-tab"        data-subtab="XSB"   id="subtab-XSB">新设备</button>
             <button class="sub-tab"        data-subtab="SB"    id="subtab-SB">旧设备</button>
-            <button class="sub-tab"        data-subtab="PJ"    id="subtab-PJ">配件</button>
             <button class="sub-tab"        data-subtab="BC"    id="subtab-BC">包材</button>
             <button class="sub-tab"        data-subtab="SC"    id="subtab-SC">食材</button>
-            <button class="sub-tab"        data-subtab="ZC"    id="subtab-ZC">自采</button>
         </div>
         <div class="source-filter" id="summary-source-filter">
             <button class="source-filter-btn active" data-source="all" id="src-summary-all">全部</button>
             <button class="source-filter-btn" data-source="cn" id="src-summary-cn">中国集装箱</button>
             <button class="source-filter-btn" data-source="cn-log" id="src-summary-cnlog">中国物流</button>
-            <button class="source-filter-btn" data-source="ru" id="src-summary-ru">俄罗斯本地</button>
         </div>
         <div class="summary-toolbar">
             <input type="text" class="summary-search" id="summary-search" placeholder="搜索物料...">
@@ -686,10 +677,8 @@
                         <option value="">请选择</option>
                         <option value="XSB">新设备</option>
                         <option value="SB">旧设备</option>
-                        <option value="PJ">配件</option>
                         <option value="BC">包材</option>
                         <option value="SC">食材</option>
-                        <option value="ZC">自采</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -743,7 +732,6 @@
                     <div class="source-filter" id="inbound-source-filter">
                         <button type="button" class="source-filter-btn active" data-source="cn" id="src-inbound-cn">中国集装箱</button>
                         <button type="button" class="source-filter-btn" data-source="cn-log" id="src-inbound-cnlog">中国物流</button>
-                        <button type="button" class="source-filter-btn" data-source="ru" id="src-inbound-ru">俄罗斯本地</button>
                     </div>
                     <input type="hidden" id="inbound-source" value="cn">
                 </div>
@@ -871,29 +859,7 @@
         </div>
     </div>
 
-    <!-- ==================== 月出库页 ==================== -->
-    <div id="page-month-outbound" class="page">
-        <h3 id="month-outbound-title">月出库</h3>
-        <div class="summary-table-wrap" id="month-outbound-container">
-            <div class="no-data" id="month-outbound-empty" style="display:none;text-align:center;padding:40px;color:#888;">暂无数据</div>
-        </div>
-    </div>
-
-    <!-- ==================== 季度出库页 ==================== -->
-    <div id="page-quarter-outbound" class="page">
-        <h3 id="quarter-outbound-title">季度出库</h3>
-        <div class="summary-table-wrap" id="quarter-outbound-container">
-            <div class="no-data" id="quarter-outbound-empty" style="display:none;text-align:center;padding:40px;color:#888;">暂无数据</div>
-        </div>
-    </div>
-
-    <!-- ==================== 年出库页 ==================== -->
-    <div id="page-year-outbound" class="page">
-        <h3 id="year-outbound-title">年出库</h3>
-        <div class="summary-table-wrap" id="year-outbound-container">
-            <div class="no-data" id="year-outbound-empty" style="display:none;text-align:center;padding:40px;color:#888;">暂无数据</div>
-        </div>
-    </div>
+    <!-- 月/季/年出库页已移除（饭店版不需要） -->
 </div>
 </div>
 <!-- ===== 密码验证弹窗 ===== -->
@@ -1041,6 +1007,8 @@
 
 <script>
 
+// v1.0.1：饭店版定制——删除「配件」「自采」分类，「俄罗斯本地」采购地筛选，
+//         「月/季/年出库」标签页；清空旧数据（克隆时被同步进来的奶茶店数据）。
 // v1.0.0：饭店原材料库存管理系统（克隆自主站 v3.12.9，数据与奶茶店主站完全隔离）。
 //   隔离项：① 数据文件 restaurant-sync-data.json + restaurant-sync-images-N.json（独立仓库 restaurant-inventory）；
 //   ② localStorage 全部键加 restaurant- 前缀（与主站同源共享 localStorage，必须隔离）；
@@ -2298,9 +2266,7 @@ function renderPeriodOutbound() {
         });
     }
 
-    renderPeriod('month-outbound', inMonth, 'month');
-    renderPeriod('quarter-outbound', inQuarter, 'quarter');
-    renderPeriod('year-outbound', inYear, 'year');
+    // 饭店版已移除月/季/年出库页
 }
 
 function showAlert(type, message, page) {
@@ -4087,7 +4053,6 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('page-'+target).classList.add('active');
             if (target === 'summary') renderSummary();
             if (target === 'log') renderLog();
-            if (target === 'month-outbound' || target === 'quarter-outbound' || target === 'year-outbound') renderPeriodOutbound();
         });
     });
 
