@@ -1007,13 +1007,15 @@
 
 <script>
 
-// v1.0.3：彻底根治奶茶店数据反复回流——三重防护：
-//   ① PRESET_VERSION 改为独立身份 '20260825_restaurant'（奶茶店=20260609_source），本地加载与云端合并、
-//      上传前合并均按值比对，不匹配的数据源整体丢弃（库存+历史+日志全拒），即使旧版手机再把
-//      奶茶店数据推上云端也永远进不来；
-//   ② 一次性清空标记升级为 restaurant-reset-v1.0.3（v1.0.2 的 reset 挡不住停留在旧版页面的手机，
-//      2026-08-25 云端被旧手机推回 78 条奶茶店物料后复现污染）；
-//   ③ 修复 loadFromGist 把云端键无前缀写回本地的 bug（会与主站同名 localStorage 键互串）。
+// v1.0.3：彻底根治奶茶店数据反复回流——四重防护：
+//   ① 数据文件整体换通道：SYNC_FILE 改为 restaurant-data-v2.json（图片分片同步换名）。
+//      旧文件被停留在旧版页面的手机反复推入奶茶店数据——旧页面上传前合并无任何过滤、
+//      Lamport 时钟把物料时间戳推到 resetAt 之后、甚至把新 presetVersion 值合并进污染数据，
+//      时间戳与身份防线均被绕过（2026-08-25 实测复现）。新旧版本各走各的文件，物理隔离。
+//   ② PRESET_VERSION 改为独立身份 '20260825_restaurant'（奶茶店=20260609_source），本地加载与云端合并、
+//      上传前合并均按值比对，不匹配的数据源整体丢弃（库存+历史+日志全拒）；
+//   ③ 一次性清空标记升级为 restaurant-reset-v1.0.3（清空本机所有 restaurant-* 缓存重来）；
+//   ④ 修复 loadFromGist 把云端键无前缀写回本地的 bug（会与主站同名 localStorage 键互串）。
 //   另：主站 sw.js 已修复 —— 之前主站 Service Worker(scope=/) 会劫持 /restaurant-inventory/ 导航请求，
 //   把奶茶店主站页面返回给饭店版 URL，导致手机打开饭店版直接显示奶茶店界面与库存。
 // v1.0.2：饭店版增加一次性清空逻辑——检测到升级标记缺失时，清空本机 restaurant-* 缓存并写入
@@ -1021,7 +1023,7 @@
 // v1.0.1：饭店版定制——删除「配件」「自采」分类，「俄罗斯本地」采购地筛选，
 //         「月/季/年出库」标签页；清空旧数据（克隆时被同步进来的奶茶店数据）。
 // v1.0.0：饭店原材料库存管理系统（克隆自主站 v3.12.9，数据与奶茶店主站完全隔离）。
-//   隔离项：① 数据文件 restaurant-sync-data.json + restaurant-sync-images-N.json（独立仓库 restaurant-inventory）；
+//   隔离项：① 数据文件（v1.0.3 起为 restaurant-data-v2.json + restaurant-images-v2-N.json，独立仓库 restaurant-inventory）；
 //   ② localStorage 全部键加 restaurant- 前缀（与主站同源共享 localStorage，必须隔离）；
 //   ③ Service Worker 缓存名 restaurant-cache-v1（互不干扰）。
 // ========== 同步后端：GitHub 仓库 Contents API（替代已失效的 Gist 写权限） ==========
@@ -1029,7 +1031,12 @@
 // 改用「部署仓库」的 token（拥有 repo 写权限，已验证可 PUT），把共享数据存为仓库根目录的 wms-sync-data.json。
 // 该 token 作用域为 repo（可推送该仓库），对个人工具可接受；日后如需收紧可换成仅 gist 作用域的 token。
 const SYNC_REPO = "chengbaojun37-code/restaurant-inventory";
-const SYNC_FILE = "restaurant-sync-data.json";
+// v1.0.3 关键决策：换用全新数据文件名 —— 旧文件 restaurant-sync-data.json 已被停留在旧版页面的手机
+// 反复推入奶茶店数据（其上传前合并逻辑无 presetVersion/resetAt 过滤，且 Lamport 时钟把物料时间戳
+// 推到 resetAt 之后，时间戳防线失效；甚至把新 presetVersion 值合并进污染数据绕过身份防线）。
+// 新旧版本各走各的文件：旧页面对旧文件的任何推送都碰不到新通道，物理隔离、绝对干净。
+// （旧文件保留作"隔离病房"，待所有设备升级 v1.0.3 数日后可删除）
+const SYNC_FILE = "restaurant-data-v2.json";
 // v3.9.6：采购地细分为三类——中国集装箱('cn'，兼容旧"中国")、中国物流('cn-log'，新增)、俄罗斯本地('ru'，兼容旧"俄罗斯")。
 // 旧数据无需迁移：原 'cn' 自动显示为「中国集装箱」、原 'ru' 自动显示为「俄罗斯本地」。
 // v3.9.4：图片单独走独立同步文件；v3.9.5 升级为分片多文件（wms-sync-images-1.json、-2.json、…），
@@ -1076,10 +1083,10 @@ const SYNC_FILE = "restaurant-sync-data.json";
 // v3.9.9：移除入库/出库表单的码编号输入框，扫码按钮移到物料编号右侧，扫码直接识别并填入物料编号。
 // v3.9.8：库存总览页增加分类子标签（新设备XSB/旧设备SB/配件/包材/食材/自采），与实时库存总表一致。
 // v3.9.7：设备拆分。实时库存子标签「设备」拆为「新设备(编号前缀 XSB)」「旧设备(前缀 SB)」，按编号自动归类。
-const SYNC_IMG_FILE = "restaurant-sync-images.json";        // v3.9.4 旧版单文件（仅作迁移源）
+const SYNC_IMG_FILE = "restaurant-images-v2.json";        // v1.0.3：图片同步同样换新文件（与主数据文件一起彻底换通道）
 var SYNC_IMG_SHARD_LIMIT = 600000;                    // 每片 JSON 长度上限 ~600KB
 var SYNC_IMG_MAX_SHARDS = 200;                        // 分片数量上限（200 × 600KB ≈ 120MB，v3.11：60→200）
-function _imgShardFile(i) { return 'restaurant-sync-images-' + i + '.json'; }
+function _imgShardFile(i) { return 'restaurant-images-v2-' + i + '.json'; } // v1.0.3：分片文件同步换名，旧分片留给旧版页面
 const SYNC_BRANCH = "main";
 // token 分段存储（避免完整密钥触发仓库推送保护；运行时拼接）
 const ST_A = "ghp_31bfairL4PIV5T0";
@@ -5500,7 +5507,7 @@ function showSyncToast(msg) {
 // ========== v3.9.5：物料图片跨设备同步（分片多文件，容量无上限） ==========
 // 原理：图片早已是压缩缩略图（150~300px JPEG，单张 5~40KB），从主同步文件里剔除（防撑爆 1MB）。
 // v3.9.4 的单文件方案只有 ~35 张容量，v3.9.5 升级为分片：
-// - 云端存 wms-sync-images-1.json、-2.json、… 每片 ~600KB，追加式打包；
+// - 云端存 restaurant-images-v2-1.json、-2.json、… 每片 ~600KB，追加式打包（v1.0.3 起换新通道）；
 // - 追加式分片：已上传的片内容尽量不变，新增图片通常只 PUT 最后一片或新建一片，写放大最小；
 // - 上传前与云端全部分片做并集合并（本机图优先，已删物料图清理），再重新分片；
 // - 与云端逐片对比，从第一处差异开始 PUT，多余的尾片 DELETE；
