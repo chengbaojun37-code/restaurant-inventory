@@ -550,7 +550,7 @@
 <body>
 <div class="container">
 <div class="header">
-    <h1 id="header-title">饭店原材料库存管理系统</h1><span id="app-version" style="font-size:13px;opacity:0.9;margin-left:10px;font-weight:400;">v1.0.2</span>
+    <h1 id="header-title">饭店原材料库存管理系统</h1><span id="app-version" style="font-size:13px;opacity:0.9;margin-left:10px;font-weight:400;">v1.0.3</span>
     <div class="header-right">
         <div class="user-settings">
             <input type="text" id="user-name-input" placeholder="输入姓名...">
@@ -1007,6 +1007,15 @@
 
 <script>
 
+// v1.0.3：彻底根治奶茶店数据反复回流——三重防护：
+//   ① PRESET_VERSION 改为独立身份 '20260825_restaurant'（奶茶店=20260609_source），本地加载与云端合并、
+//      上传前合并均按值比对，不匹配的数据源整体丢弃（库存+历史+日志全拒），即使旧版手机再把
+//      奶茶店数据推上云端也永远进不来；
+//   ② 一次性清空标记升级为 restaurant-reset-v1.0.3（v1.0.2 的 reset 挡不住停留在旧版页面的手机，
+//      2026-08-25 云端被旧手机推回 78 条奶茶店物料后复现污染）；
+//   ③ 修复 loadFromGist 把云端键无前缀写回本地的 bug（会与主站同名 localStorage 键互串）。
+//   另：主站 sw.js 已修复 —— 之前主站 Service Worker(scope=/) 会劫持 /restaurant-inventory/ 导航请求，
+//   把奶茶店主站页面返回给饭店版 URL，导致手机打开饭店版直接显示奶茶店界面与库存。
 // v1.0.2：饭店版增加一次性清空逻辑——检测到升级标记缺失时，清空本机 restaurant-* 缓存并写入
 //         带 resetAt 的空数据，确保克隆初期误同步的奶茶店数据被彻底丢弃。
 // v1.0.1：饭店版定制——删除「配件」「自采」分类，「俄罗斯本地」采购地筛选，
@@ -3007,7 +3016,8 @@ function performAutoBackup() {
     saveAllData();
 }
 
-const PRESET_VERSION = '20260609_source';
+const PRESET_VERSION = '20260825_restaurant'; // v1.0.3：饭店版独立数据身份标识（奶茶店=20260609_source）。
+// 任何 presetVersion 与此不相符的数据源（无论本地还是云端）一律判定为奶茶店污染数据，整体拒绝合并。
 
 const UNIT_MAP = {
     '个': '个 / шт.', '台': '台 / шт.', '千克': '千克 / кг', 'kg': '千克 / кг',
@@ -3932,10 +3942,11 @@ function normalizeAllOutboundDepartments() {
 
 // ========== 事件绑定 ==========
 document.addEventListener('DOMContentLoaded', function() {
-    // v1.0.2 一次性清空：克隆初期误同步了奶茶店主站数据，
-    // 此标记保证所有设备在升级到 v1.0.2 时清空本地 restaurant-* 缓存，
-    // 并写入带 resetAt 的空数据，让云端旧记录按 lastModified 被过滤丢弃。
-    var RESET_MARKER = 'restaurant-reset-v1.0.2';
+    // v1.0.3 一次性清空：v1.0.2 的 reset 只能清「已升级的设备」，停留在旧版页面（v1.0.0/1.0.1）的手机
+    // 本地仍残留奶茶店数据，且把云端刚删除的文件又推了回去（2026-08-25 复现：云端被推入 78 条奶茶店物料）。
+    // v1.0.3 换新标记再清一次所有设备，同时配合 PRESET_VERSION 防火墙（'20260825_restaurant'）：
+    // 即使旧手机再把奶茶店数据推上云端，新版也会按 presetVersion 不匹配整体拒绝，永不再污染。
+    var RESET_MARKER = 'restaurant-reset-v1.0.3';
     if (localStorage.getItem(RESET_MARKER) !== '1') {
         var keysToRemove = [];
         for (var _ri = 0; _ri < localStorage.length; _ri++) {
@@ -3954,7 +3965,7 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('restaurant-warehouse-data', JSON.stringify(_emptyResetData));
         localStorage.setItem('restaurant-warehouse-data-new', JSON.stringify(_emptyResetData));
         localStorage.setItem(RESET_MARKER, '1');
-        console.log('[Restaurant] v1.0.2 one-time reset: cleared ' + keysToRemove.length + ' keys, resetAt=' + _now);
+        console.log('[Restaurant] v1.0.3 one-time reset: cleared ' + keysToRemove.length + ' keys, resetAt=' + _now);
     }
 
     // 启动阶段禁止 saveToGist 上传，避免本地旧数据污染 Gist
@@ -4948,6 +4959,10 @@ function _doSaveToGist() {
                 var _l = _safeParse(data['warehouse-data-new']) || _safeParse(data['warehouse-data']);
                 var _cA = _safeParse(cloud['warehouse-data']);
                 var _cB = _safeParse(cloud['warehouse-data-new']);
+                // v1.0.3 防火墙：云端源 presetVersion 不匹配（奶茶店污染）→ 整源忽略，绝不合并进本次上传，
+                // 否则奶茶店的出入库历史会借上传通道混进 payload、覆盖回云端，永远清不干净。
+                if (_cA && _cA.presetVersion !== PRESET_VERSION) _cA = null;
+                if (_cB && _cB.presetVersion !== PRESET_VERSION) _cB = null;
                 var _cloudAcc = null;
                 if (_cA) _cloudAcc = mergeWarehouseData(_cloudAcc, _cA);
                 if (_cB) _cloudAcc = mergeWarehouseData(_cloudAcc, _cB);
@@ -5316,7 +5331,13 @@ function loadFromGist() {
                     hasWarehouseData = true;
                     continue;
                 }
-                localStorage.setItem(key, data[key]);
+                // v1.0.3 修正：云端键写回本地必须加 restaurant- 前缀（两站同源共享 localStorage，
+                // 之前直接 setItem(key) 会与奶茶店主站同名键互相覆盖）。
+                if (key.indexOf('restaurant-') !== 0) {
+                    localStorage.setItem('restaurant-' + key, data[key]);
+                } else {
+                    localStorage.setItem(key, data[key]);
+                }
             }
             // —— 统一合并四个数据源：Gist(warehouse-data)、Gist(warehouse-data-new)、本地两键 ——
             // 按物料 lastModified 新者胜、出入库/日志并集，杜绝互相覆盖丢数据；结果回写两个键，实现自愈收敛
@@ -5330,7 +5351,9 @@ function loadFromGist() {
             // 否则会出现「电脑端=0 → 同步把手机端新数据也整体归零」的回灌 bug。
             // 一旦合并结果里出现重置之后写入的真实数据，立即清除 resetAt，使清零成为一次性动作，不再反复归零。
             function _maxReset(arr){ var m=0; (arr||[]).forEach(function(s){ if(s&&s.resetAt&&s.resetAt>m) m=s.resetAt; }); return m; }
-            function _isTrusted(o){ return !!(o && o.presetVersion); } // 新版本写入的源才可信；旧版本整文件覆盖（含 222 条）缺乏 presetVersion，视为污染直接清空
+            // v1.0.3 防火墙：presetVersion 必须与饭店版身份标识完全一致。
+            // 奶茶店数据（20260609_source）即使混入云端，也整源判定不可信 → 完全忽略（库存+历史都不合并）。
+            function _isTrusted(o){ return !!(o && o.presetVersion === PRESET_VERSION); }
             function _dropPreReset(o, R){
                 if(!o) return null;
                 var n = {}; for(var k in o){ n[k]=o[k]; }
@@ -5344,13 +5367,14 @@ function loadFromGist() {
                 });
                 return n;
             }
-            function _wipeInventory(o){ if(!o) return null; var n={}; for(var k in o){ n[k]=o[k]; } n.inventory=[]; return n; }
+            // （v1.0.3：_wipeInventory 已移除 —— 不可信源现在整源丢弃 null，历史记录不再混入）
             var _gistResetAt = _maxReset([_gistObj, _gistObj2]);
             var _locResetAt = _maxReset([_locObj, _locObj2]);
             var _R = Math.max(_gistResetAt, _locResetAt); // 生效的重置时刻
-            // Gist 源：可信（含 presetVersion）才采用其库存并过滤旧记录；不可信源清空库存（挡旧版本 222 条回灌）。本地源始终可信。
-            var _gA = _isTrusted(_gistObj) ? _dropPreReset(_gistObj, _R) : _wipeInventory(_gistObj);
-            var _gB = _isTrusted(_gistObj2) ? _dropPreReset(_gistObj2, _R) : _wipeInventory(_gistObj2);
+            // Gist 源：presetVersion 匹配（自家数据）才参与合并；不匹配（奶茶店污染/旧版本回灌）→ 整源丢弃 null。
+            // v1.0.3 修正：之前不可信源只清库存（_wipeInventory）保留历史，奶茶店的出入库记录/操作日志仍会混入。
+            var _gA = _isTrusted(_gistObj) ? _dropPreReset(_gistObj, _R) : null;
+            var _gB = _isTrusted(_gistObj2) ? _dropPreReset(_gistObj2, _R) : null;
             var _lA = _dropPreReset(_locObj, _R);
             var _lB = _dropPreReset(_locObj2, _R);
             // v3.9.1：本机源在前 —— unionByKey 去重时先到先得，本机记录（带图片）优先保留
