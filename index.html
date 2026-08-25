@@ -550,7 +550,7 @@
 <body>
 <div class="container">
 <div class="header">
-    <h1 id="header-title">饭店原材料库存管理系统</h1><span id="app-version" style="font-size:13px;opacity:0.9;margin-left:10px;font-weight:400;">v1.0.3</span>
+    <h1 id="header-title">饭店原材料库存管理系统</h1><span id="app-version" style="font-size:13px;opacity:0.9;margin-left:10px;font-weight:400;">v1.0.4</span>
     <div class="header-right">
         <div class="user-settings">
             <input type="text" id="user-name-input" placeholder="输入姓名...">
@@ -592,7 +592,6 @@
             <button class="sub-tab"        data-subtab="XSB"   id="ov-subtab-XSB">新设备</button>
             <button class="sub-tab"        data-subtab="SB"    id="ov-subtab-SB">旧设备</button>
             <button class="sub-tab"        data-subtab="BC"    id="ov-subtab-BC">包材</button>
-            <button class="sub-tab"        data-subtab="SC"    id="ov-subtab-SC">食材</button>
         </div>
         <div class="stats-cards">
         <div class="source-filter" id="inventory-source-filter">
@@ -617,7 +616,6 @@
             <button class="sub-tab"        data-subtab="XSB"   id="subtab-XSB">新设备</button>
             <button class="sub-tab"        data-subtab="SB"    id="subtab-SB">旧设备</button>
             <button class="sub-tab"        data-subtab="BC"    id="subtab-BC">包材</button>
-            <button class="sub-tab"        data-subtab="SC"    id="subtab-SC">食材</button>
         </div>
         <div class="source-filter" id="summary-source-filter">
             <button class="source-filter-btn active" data-source="all" id="src-summary-all">全部</button>
@@ -678,7 +676,6 @@
                         <option value="XSB">新设备</option>
                         <option value="SB">旧设备</option>
                         <option value="BC">包材</option>
-                        <option value="SC">食材</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -1007,6 +1004,15 @@
 
 <script>
 
+// v1.0.4：找到并修复污染的真正根因 —— saveToGist 的上传源键是无前缀的 'warehouse-data-new'，
+//   两站同源共享 localStorage，该键正是奶茶店主站存在同一浏览器的数据：饭店版每次上传都把
+//   奶茶店数据捞进 payload 推上云端并写回本机（v2 通道 78 条奶茶店物料即此路径，之前的
+//   presetVersion 防火墙被上传合并的"身份注入"绕过）。v1.0.4 五项根治：
+//   ① 上传源键改为 rst2-warehouse-data-new（只捞饭店版自己的新键空间），云端文件键名不变；
+//   ② localStorage 数据承载键整体换名 rst2-warehouse-*（旧页面只认 restaurant-* 键，物理隔离）；
+//   ③ 数据文件再换通道 restaurant-data-v3.json + restaurant-images-v3-N.json；
+//   ④ PRESET_VERSION 换新值 '20260826_rst_v4'；一次性清空标记升级 restaurant-reset-v1.0.4；
+//   ⑤ UI：删除「食材」分类（入库管理选项 + 实时库存/入库子标签），仅保留 新设备/旧设备/包材。
 // v1.0.3：彻底根治奶茶店数据反复回流——四重防护：
 //   ① 数据文件整体换通道：SYNC_FILE 改为 restaurant-data-v2.json（图片分片同步换名）。
 //      旧文件被停留在旧版页面的手机反复推入奶茶店数据——旧页面上传前合并无任何过滤、
@@ -1023,8 +1029,8 @@
 // v1.0.1：饭店版定制——删除「配件」「自采」分类，「俄罗斯本地」采购地筛选，
 //         「月/季/年出库」标签页；清空旧数据（克隆时被同步进来的奶茶店数据）。
 // v1.0.0：饭店原材料库存管理系统（克隆自主站 v3.12.9，数据与奶茶店主站完全隔离）。
-//   隔离项：① 数据文件（v1.0.3 起为 restaurant-data-v2.json + restaurant-images-v2-N.json，独立仓库 restaurant-inventory）；
-//   ② localStorage 全部键加 restaurant- 前缀（与主站同源共享 localStorage，必须隔离）；
+//   隔离项：① 数据文件（v1.0.4 起为 restaurant-data-v3.json + restaurant-images-v3-N.json，独立仓库 restaurant-inventory）；
+//   ② localStorage 数据承载键用 rst2- 前缀（v1.0.4 起；此前 restaurant- 前缀与主站共享浏览器时仍被上传通道误捞）；
 //   ③ Service Worker 缓存名 restaurant-cache-v1（互不干扰）。
 // ========== 同步后端：GitHub 仓库 Contents API（替代已失效的 Gist 写权限） ==========
 // 说明：原 Gist token 仅有读权限（PATCH 返回 404），无法上传，导致手机数据永远出不去。
@@ -1036,7 +1042,7 @@ const SYNC_REPO = "chengbaojun37-code/restaurant-inventory";
 // 推到 resetAt 之后，时间戳防线失效；甚至把新 presetVersion 值合并进污染数据绕过身份防线）。
 // 新旧版本各走各的文件：旧页面对旧文件的任何推送都碰不到新通道，物理隔离、绝对干净。
 // （旧文件保留作"隔离病房"，待所有设备升级 v1.0.3 数日后可删除）
-const SYNC_FILE = "restaurant-data-v2.json";
+const SYNC_FILE = "restaurant-data-v3.json";
 // v3.9.6：采购地细分为三类——中国集装箱('cn'，兼容旧"中国")、中国物流('cn-log'，新增)、俄罗斯本地('ru'，兼容旧"俄罗斯")。
 // 旧数据无需迁移：原 'cn' 自动显示为「中国集装箱」、原 'ru' 自动显示为「俄罗斯本地」。
 // v3.9.4：图片单独走独立同步文件；v3.9.5 升级为分片多文件（wms-sync-images-1.json、-2.json、…），
@@ -1083,10 +1089,10 @@ const SYNC_FILE = "restaurant-data-v2.json";
 // v3.9.9：移除入库/出库表单的码编号输入框，扫码按钮移到物料编号右侧，扫码直接识别并填入物料编号。
 // v3.9.8：库存总览页增加分类子标签（新设备XSB/旧设备SB/配件/包材/食材/自采），与实时库存总表一致。
 // v3.9.7：设备拆分。实时库存子标签「设备」拆为「新设备(编号前缀 XSB)」「旧设备(前缀 SB)」，按编号自动归类。
-const SYNC_IMG_FILE = "restaurant-images-v2.json";        // v1.0.3：图片同步同样换新文件（与主数据文件一起彻底换通道）
+const SYNC_IMG_FILE = "restaurant-images-v3.json";        // v1.0.4：图片同步随主数据一起再次换新通道
 var SYNC_IMG_SHARD_LIMIT = 600000;                    // 每片 JSON 长度上限 ~600KB
 var SYNC_IMG_MAX_SHARDS = 200;                        // 分片数量上限（200 × 600KB ≈ 120MB，v3.11：60→200）
-function _imgShardFile(i) { return 'restaurant-images-v2-' + i + '.json'; } // v1.0.3：分片文件同步换名，旧分片留给旧版页面
+function _imgShardFile(i) { return 'restaurant-images-v3-' + i + '.json'; } // v1.0.4：分片文件同步换名
 const SYNC_BRANCH = "main";
 // token 分段存储（避免完整密钥触发仓库推送保护；运行时拼接）
 const ST_A = "ghp_31bfairL4PIV5T0";
@@ -2341,14 +2347,14 @@ function saveAllData() {
     var _liveKeys = {};
     inventory.forEach(function(it) { if (it && it.code) _liveKeys[it.code] = 1; });
     for (var _sk in _prevInvSnap) { if (!_liveKeys[_sk]) delete _prevInvSnap[_sk]; }
-    var _prevWD = _safeParse(localStorage.getItem('restaurant-warehouse-data'));
+    var _prevWD = _safeParse(localStorage.getItem('rst2-warehouse-data'));
     var _carryResetAt = (_prevWD && _prevWD.resetAt) ? _prevWD.resetAt : undefined;
     // v3.11：图片分离存储 —— 图片不再内嵌 warehouse-data（且此前双键各存一份，等于 2 倍体积），
     // 改存独立键 warehouse-images（单份）。localStorage 5MB 配额下可容纳的图片数量翻倍以上；
     // 主数据文件保持轻量，永不因图片多而写入失败影响同步。图片写失败时仅告警不报错
     // （图片仍在本机内存与云端分片中，轮询的 syncImagesFromCloud 会自动补回）。
     var _imgStore = {};
-    try { _imgStore = JSON.parse(localStorage.getItem('restaurant-warehouse-images') || '{}') || {}; } catch(e3) { _imgStore = {}; }
+    try { _imgStore = JSON.parse(localStorage.getItem('rst2-warehouse-images') || '{}') || {}; } catch(e3) { _imgStore = {}; }
     var _liveImgCodes = {};
     var saveInventory = inventory.map(function(it) {
         if (!it || typeof it !== 'object') return it;
@@ -2387,10 +2393,10 @@ function saveAllData() {
         warehousePassword: warehousePassword
     };
     try {
-        localStorage.setItem('restaurant-warehouse-data', JSON.stringify(saveData));
-        localStorage.setItem('restaurant-warehouse-data-new', JSON.stringify(saveData));
+        localStorage.setItem('rst2-warehouse-data', JSON.stringify(saveData));
+        localStorage.setItem('rst2-warehouse-data-new', JSON.stringify(saveData));
         try {
-            localStorage.setItem('restaurant-warehouse-images', JSON.stringify(_imgStore));
+            localStorage.setItem('rst2-warehouse-images', JSON.stringify(_imgStore));
         } catch (eImg) {
             // 图片键写满（配额）：剔除最早的图片后重试一次；再失败则放弃本地图片缓存（云端分片仍是完整源，可自动补回）
             var _codes = Object.keys(_imgStore);
@@ -2398,7 +2404,7 @@ function saveAllData() {
                 try {
                     var _keep = {};
                     for (var _ki = Math.floor(_codes.length / 2); _ki < _codes.length; _ki++) { _keep[_codes[_ki]] = _imgStore[_codes[_ki]]; }
-                    localStorage.setItem('restaurant-warehouse-images', JSON.stringify(_keep));
+                    localStorage.setItem('rst2-warehouse-images', JSON.stringify(_keep));
                 } catch (eImg2) {}
             }
             console.warn('saveAllData: 图片本地缓存写入失败（数据已安全，图片可从云端自动补回）', eImg && eImg.message);
@@ -2410,12 +2416,12 @@ function saveAllData() {
         console.warn('saveAllData: localStorage 写入失败 (' + e.name + ')', e.message);
         // 配额满：尝试清理备份数据后重试
         try {
-            var backups = JSON.parse(localStorage.getItem('restaurant-warehouse-auto-backups') || '[]');
+            var backups = JSON.parse(localStorage.getItem('rst2-warehouse-auto-backups') || '[]');
             if (backups.length > 0) {
                 while (backups.length > 2) { backups.shift(); }
-                localStorage.setItem('restaurant-warehouse-auto-backups', JSON.stringify(backups));
-                localStorage.setItem('restaurant-warehouse-data', JSON.stringify(saveData));
-                localStorage.setItem('restaurant-warehouse-data-new', JSON.stringify(saveData));
+                localStorage.setItem('rst2-warehouse-auto-backups', JSON.stringify(backups));
+                localStorage.setItem('rst2-warehouse-data', JSON.stringify(saveData));
+                localStorage.setItem('rst2-warehouse-data-new', JSON.stringify(saveData));
                 if (!_gistLoading) { saveToGist(); }
                 else { localStorage.setItem('restaurant-gist-pending-sync', 'true'); localStorage.setItem('restaurant-gist-pending-sync-new', 'true'); }
                 return true;
@@ -2428,8 +2434,8 @@ function saveAllData() {
 function clearAllData() {
     const t = translations[currentLang];
     showPasswordModal(function() {
-        localStorage.removeItem('restaurant-warehouse-data');
-        localStorage.removeItem('restaurant-warehouse-data-new');
+        localStorage.removeItem('rst2-warehouse-data');
+        localStorage.removeItem('rst2-warehouse-data-new');
         inventory = [];
         inboundHistory = [];
         outboundHistory = [];
@@ -2645,9 +2651,9 @@ function handleInsertSubmit() {
     if (!saved) {
         // 尝试清理 localStorage 中可能已满的备份数据后重试
         try {
-            var backups = JSON.parse(localStorage.getItem('restaurant-warehouse-auto-backups') || '[]');
+            var backups = JSON.parse(localStorage.getItem('rst2-warehouse-auto-backups') || '[]');
             while (backups.length > 5) { backups.shift(); }
-            localStorage.setItem('restaurant-warehouse-auto-backups', JSON.stringify(backups));
+            localStorage.setItem('rst2-warehouse-auto-backups', JSON.stringify(backups));
             saved = saveAllData();
         } catch(e) {}
     }
@@ -3007,23 +3013,23 @@ function performAutoBackup() {
     // 存入 localStorage 备份快照
     var backups = [];
     try {
-        backups = JSON.parse(localStorage.getItem('restaurant-warehouse-auto-backups') || '[]');
+        backups = JSON.parse(localStorage.getItem('rst2-warehouse-auto-backups') || '[]');
     } catch(e) { backups = []; }
     backups.push({ time: ts, data: data });
     // 只保留最近 10 个备份
     if (backups.length > 10) backups = backups.slice(backups.length - 10);
     try {
-        localStorage.setItem('restaurant-warehouse-auto-backups', JSON.stringify(backups));
+        localStorage.setItem('rst2-warehouse-auto-backups', JSON.stringify(backups));
     } catch(e) {
         // localStorage 满时清理最旧的备份后重试
         while (backups.length > 4) { backups.shift(); }
-        try { localStorage.setItem('restaurant-warehouse-auto-backups', JSON.stringify(backups)); } catch(e2) {}
+        try { localStorage.setItem('rst2-warehouse-auto-backups', JSON.stringify(backups)); } catch(e2) {}
     }
     addLog(currentLang === 'zh' ? '自动备份' : 'Авто-резерв', '-', '-', currentLang === 'zh' ? '自动备份完成' : 'Авто-резервное копирование завершено');
     saveAllData();
 }
 
-const PRESET_VERSION = '20260825_restaurant'; // v1.0.3：饭店版独立数据身份标识（奶茶店=20260609_source）。
+const PRESET_VERSION = '20260826_rst_v4'; // v1.0.4：饭店版独立数据身份标识（奶茶店=20260609_source）。随换通道再次更换。
 // 任何 presetVersion 与此不相符的数据源（无论本地还是云端）一律判定为奶茶店污染数据，整体拒绝合并。
 
 const UNIT_MAP = {
@@ -3044,11 +3050,11 @@ function syncUnitBilingual() {
 }
 
 function loadAllData() {
-    var raw = localStorage.getItem('restaurant-warehouse-data');
+    var raw = localStorage.getItem('rst2-warehouse-data');
     // fallback: 兼容 Gist 中可能使用 warehouse-records 键名的情况
-    if (!raw) raw = localStorage.getItem('restaurant-warehouse-records');
+    if (!raw) raw = localStorage.getItem('rst2-warehouse-records');
     // fallback: 兼容 -new 后缀键空间（多端历史版本混用导致数据可能在 warehouse-data-new 中）
-    if (!raw) raw = localStorage.getItem('restaurant-warehouse-data-new');
+    if (!raw) raw = localStorage.getItem('rst2-warehouse-data-new');
     if (raw) {
         try {
             const data = JSON.parse(raw);
@@ -3070,7 +3076,7 @@ function loadAllData() {
             // v3.11：图片独立存储 —— 从 warehouse-images 键合并回物料（不覆盖已有内嵌图片，
             // 兼容旧版本写入的内嵌格式；下次 saveAllData 会自动迁移到独立键）
             try {
-                var _ldImgs = JSON.parse(localStorage.getItem('restaurant-warehouse-images') || '{}');
+                var _ldImgs = JSON.parse(localStorage.getItem('rst2-warehouse-images') || '{}');
                 for (var _ldj = 0; _ldj < inventory.length; _ldj++) {
                     var _ldCode = inventory[_ldj].code;
                     if (_ldCode && _ldImgs[_ldCode] && (!inventory[_ldj].image || inventory[_ldj].image.length < 100)) {
@@ -3949,11 +3955,11 @@ function normalizeAllOutboundDepartments() {
 
 // ========== 事件绑定 ==========
 document.addEventListener('DOMContentLoaded', function() {
-    // v1.0.3 一次性清空：v1.0.2 的 reset 只能清「已升级的设备」，停留在旧版页面（v1.0.0/1.0.1）的手机
-    // 本地仍残留奶茶店数据，且把云端刚删除的文件又推了回去（2026-08-25 复现：云端被推入 78 条奶茶店物料）。
-    // v1.0.3 换新标记再清一次所有设备，同时配合 PRESET_VERSION 防火墙（'20260825_restaurant'）：
-    // 即使旧手机再把奶茶店数据推上云端，新版也会按 presetVersion 不匹配整体拒绝，永不再污染。
-    var RESET_MARKER = 'restaurant-reset-v1.0.3';
+    // v1.0.4 一次性清空（标记再升级）：v1.0.3 只换了云端文件名，没换本机 localStorage 键名 ——
+    // 旧版页面/被污染的旧键仍能通过 saveToGist 的无前缀上传键（已在 v1.0.4 修复）回流。
+    // v1.0.4 换全新键空间 rst2-*，本标记保证每台设备升级时清掉所有 restaurant-* 旧键并
+    // 在 rst2-* 键空间写入带新身份的空数据（旧页面继续读写旧键 = 隔离病房，互不可见）。
+    var RESET_MARKER = 'restaurant-reset-v1.0.4';
     if (localStorage.getItem(RESET_MARKER) !== '1') {
         var keysToRemove = [];
         for (var _ri = 0; _ri < localStorage.length; _ri++) {
@@ -3969,10 +3975,10 @@ document.addEventListener('DOMContentLoaded', function() {
             deletedCodes: [], deletedAt: {}, deletedHist: {}, dataVersion: 0,
             presetVersion: PRESET_VERSION, warehousePassword: 'admin123', resetAt: _now
         };
-        localStorage.setItem('restaurant-warehouse-data', JSON.stringify(_emptyResetData));
-        localStorage.setItem('restaurant-warehouse-data-new', JSON.stringify(_emptyResetData));
+        localStorage.setItem('rst2-warehouse-data', JSON.stringify(_emptyResetData));
+        localStorage.setItem('rst2-warehouse-data-new', JSON.stringify(_emptyResetData));
         localStorage.setItem(RESET_MARKER, '1');
-        console.log('[Restaurant] v1.0.3 one-time reset: cleared ' + keysToRemove.length + ' keys, resetAt=' + _now);
+        console.log('[Restaurant] v1.0.4 one-time reset: cleared ' + keysToRemove.length + ' keys, resetAt=' + _now);
     }
 
     // 启动阶段禁止 saveToGist 上传，避免本地旧数据污染 Gist
@@ -4013,14 +4019,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         // 无论 Gist 是否成功加载，只要有本地备份数据且无正式仓库数据，就显示恢复按钮
         // 即使 warehouse-data 存在，也检查备份中是否有更新的版本（如 Gist 误覆盖后）
-        if (localStorage.getItem('restaurant-warehouse-auto-backups')) {
-            var hasWarehouseData = !!localStorage.getItem('restaurant-warehouse-data') || !!localStorage.getItem('restaurant-warehouse-data-new');
+        if (localStorage.getItem('rst2-warehouse-auto-backups')) {
+            var hasWarehouseData = !!localStorage.getItem('rst2-warehouse-data') || !!localStorage.getItem('rst2-warehouse-data-new');
             if (!hasWarehouseData) {
                 document.getElementById('btn-restore-backup').style.display = 'block';
             } else {
                 try {
-                    var _ab = JSON.parse(localStorage.getItem('restaurant-warehouse-auto-backups'));
-                    var _wd = JSON.parse(localStorage.getItem('restaurant-warehouse-data') || localStorage.getItem('restaurant-warehouse-data-new') || 'null');
+                    var _ab = JSON.parse(localStorage.getItem('rst2-warehouse-auto-backups'));
+                    var _wd = JSON.parse(localStorage.getItem('rst2-warehouse-data') || localStorage.getItem('rst2-warehouse-data-new') || 'null');
                     if (_ab && _ab.length > 0) {
                         var _latestBk = _ab[_ab.length - 1];
                         var _bkVer = (_latestBk.data || _latestBk).dataVersion || 0;
@@ -4734,7 +4740,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 启动自动备份
     // 页面加载时清理超出限制的旧备份
     try {
-        var autoBackups = JSON.parse(localStorage.getItem('restaurant-warehouse-auto-backups') || '[]');
+        var autoBackups = JSON.parse(localStorage.getItem('rst2-warehouse-auto-backups') || '[]');
         if (autoBackups.length > 10) {
             autoBackups = autoBackups.slice(autoBackups.length - 10);
         }
@@ -4745,7 +4751,7 @@ document.addEventListener('DOMContentLoaded', function() {
             autoBackups = autoBackups.slice(autoBackups.length - 2);
             _abStr = JSON.stringify(autoBackups);
         }
-        localStorage.setItem('restaurant-warehouse-auto-backups', _abStr);
+        localStorage.setItem('rst2-warehouse-auto-backups', _abStr);
     } catch(e) {}
     startAutoBackup();
 
@@ -4756,7 +4762,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var isZh = currentLang === 'zh';
 
         // 保存前：计算 warehouse-data 体积和总用量
-        var rawData = localStorage.getItem('restaurant-warehouse-data') || localStorage.getItem('restaurant-warehouse-data-new');
+        var rawData = localStorage.getItem('rst2-warehouse-data') || localStorage.getItem('rst2-warehouse-data-new');
         var preDataBytes = rawData ? rawData.length * 2 : 0; // UTF-16
         var preTotalBytes = 0;
         for (var i = 0; i < localStorage.length; i++) {
@@ -4852,7 +4858,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 从备份恢复按钮点击事件
     document.getElementById('btn-restore-backup').addEventListener('click', function() {
         try {
-            var raw = localStorage.getItem('restaurant-warehouse-auto-backups');
+            var raw = localStorage.getItem('rst2-warehouse-auto-backups');
             if (!raw) return;
             var backups = JSON.parse(raw);
             if (!Array.isArray(backups) || backups.length === 0) return;
@@ -4936,10 +4942,16 @@ function _doSaveToGist() {
     // 导致所有端读不到云端数据、同步静默中断。备份从 v3.9 起仅保留在本地。
     // v3.9.1：只上传 warehouse-data-new 单键。此前两键内容完全相同（各 605KB），
     // 白白把文件翻倍顶过 1MB 上限（1.17MB），弱网手机端上传/合并频繁失败。
-    var _uploadKeys = ['warehouse-data-new'];
+    // v1.0.4 关键修复：上传源键必须是饭店版自己的本地键（rst2- 前缀）。
+    // 此前 _uploadKeys 是无前缀的 'warehouse-data-new' —— 两站同源共享 localStorage，
+    // 该键正是奶茶店主站存在同一浏览器的数据：饭店版每次上传都把奶茶店数据捞进
+    // payload 推上云端，还会写回本机缓存（2026-08-25 实测：新通道 v2 也被推入 78 条
+    // 奶茶店物料，presetVersion 防火墙被"合并注入身份"绕过）。这是克隆以来的通道性根因。
+    // 云端文件内的键名保持 'warehouse-data-new' 格式不变（与拉取/合并逻辑一致）。
+    var _uploadKeys = ['rst2-warehouse-data-new'];
     for (var i = 0; i < localStorage.length; i++) {
         var key = localStorage.key(i);
-        if (_uploadKeys.indexOf(key) >= 0) data[key] = localStorage.getItem(key);
+        if (_uploadKeys.indexOf(key) >= 0) data['warehouse-data-new'] = localStorage.getItem(key);
     }
     // 仓库 Contents API：先取当前文件 sha（用于更新），不存在则 sha=null 新建
     var _apiBase = 'https://api.github.com/repos/' + SYNC_REPO + '/contents/' + SYNC_FILE;
@@ -4982,8 +4994,8 @@ function _doSaveToGist() {
                     data['warehouse-data'] = _mergedS;
                     data['warehouse-data-new'] = _mergedS;
                     // 合并结果同步写回本地，加速本端收敛（UI 会在下次轮询刷新）
-                    localStorage.setItem('restaurant-warehouse-data', _mergedS);
-                    localStorage.setItem('restaurant-warehouse-data-new', _mergedS);
+                    localStorage.setItem('rst2-warehouse-data', _mergedS);
+                    localStorage.setItem('rst2-warehouse-data-new', _mergedS);
                 }
             }
         } catch (e) { console.warn('Sync pre-merge failed, fall back to local snapshot', e); }
@@ -5238,7 +5250,7 @@ function loadFromGist() {
     var apiUrl = 'https://api.github.com/repos/' + SYNC_REPO + '/contents/' + SYNC_FILE + '?ref=' + SYNC_BRANCH;
     // 获取本地 dataVersion，用于版本比较
     var localVersion = 0;
-    var localRaw = localStorage.getItem('restaurant-warehouse-data') || localStorage.getItem('restaurant-warehouse-data-new');
+    var localRaw = localStorage.getItem('rst2-warehouse-data') || localStorage.getItem('rst2-warehouse-data-new');
     if (localRaw) {
         try { var localData = JSON.parse(localRaw); localVersion = localData.dataVersion || 0; } catch(e) {}
     }
@@ -5338,18 +5350,18 @@ function loadFromGist() {
                     hasWarehouseData = true;
                     continue;
                 }
-                // v1.0.3 修正：云端键写回本地必须加 restaurant- 前缀（两站同源共享 localStorage，
-                // 之前直接 setItem(key) 会与奶茶店主站同名键互相覆盖）。
-                if (key.indexOf('restaurant-') !== 0) {
-                    localStorage.setItem('restaurant-' + key, data[key]);
+                // v1.0.4：云端键写回本地统一挂到 rst2- 前缀键（与上传源键对称），
+                // 与奶茶店主站（无前缀键）、旧版页面（restaurant- 前缀键）彻底互不可见。
+                if (key.indexOf('rst2-') !== 0) {
+                    localStorage.setItem('rst2-' + key, data[key]);
                 } else {
                     localStorage.setItem(key, data[key]);
                 }
             }
             // —— 统一合并四个数据源：Gist(warehouse-data)、Gist(warehouse-data-new)、本地两键 ——
             // 按物料 lastModified 新者胜、出入库/日志并集，杜绝互相覆盖丢数据；结果回写两个键，实现自愈收敛
-            var _locObj = _safeParse(localStorage.getItem('restaurant-warehouse-data'));
-            var _locObj2 = _safeParse(localStorage.getItem('restaurant-warehouse-data-new'));
+            var _locObj = _safeParse(localStorage.getItem('rst2-warehouse-data'));
+            var _locObj2 = _safeParse(localStorage.getItem('rst2-warehouse-data-new'));
             var _gistObj = _safeParse(data['warehouse-data']);
             var _gistObj2 = _safeParse(data['warehouse-data-new']);
             // resetAt 重置信号（v3.6b 修正）：记录「被显式清零」的时刻。
@@ -5395,8 +5407,8 @@ function loadFromGist() {
             } else if (_R) {
                 _mergedAcc.resetAt = _R;
             }
-            localStorage.setItem('restaurant-warehouse-data', JSON.stringify(_mergedAcc));
-            localStorage.setItem('restaurant-warehouse-data-new', JSON.stringify(_mergedAcc));
+            localStorage.setItem('rst2-warehouse-data', JSON.stringify(_mergedAcc));
+            localStorage.setItem('rst2-warehouse-data-new', JSON.stringify(_mergedAcc));
             // v3.7b：只有本地贡献了云端没有的新数据时才回传（对比库存/历史/日志/墓碑特征，忽略 dataVersion）。
             // 修复「写风暴」：之前每 10 秒轮询都会标记待上传，多端互相覆盖且逼近 API 限额。
             // v3.9.1：签名对比前同样剔除图片（云端图片已不同步，若直接对比整对象，
@@ -5412,7 +5424,7 @@ function loadFromGist() {
                 // Gist 中无 warehouse-data，检查是否有 warehouse-auto-backups 备份
                 // v3.9：加体积保护，避免导入超大备份撑爆 localStorage 配额
                 if (data['warehouse-auto-backups'] && data['warehouse-auto-backups'].length < 600000) {
-                    localStorage.setItem('restaurant-warehouse-auto-backups', data['warehouse-auto-backups']);
+                    localStorage.setItem('rst2-warehouse-auto-backups', data['warehouse-auto-backups']);
                     _gistLoading = false;
                     updateSyncStatus('synced');
                     return true;
@@ -5435,7 +5447,7 @@ function loadFromGist() {
             console.warn('Gist load error:', err);
             _gistLoading = false;
             // Gist 拉取失败时：如果 localStorage 中已有数据，标记为已同步（本地数据更可靠）
-            if (localStorage.getItem('restaurant-warehouse-data')) {
+            if (localStorage.getItem('rst2-warehouse-data')) {
                 updateSyncStatus('synced');
             } else {
                 updateSyncStatus('failed');
@@ -5507,7 +5519,7 @@ function showSyncToast(msg) {
 // ========== v3.9.5：物料图片跨设备同步（分片多文件，容量无上限） ==========
 // 原理：图片早已是压缩缩略图（150~300px JPEG，单张 5~40KB），从主同步文件里剔除（防撑爆 1MB）。
 // v3.9.4 的单文件方案只有 ~35 张容量，v3.9.5 升级为分片：
-// - 云端存 restaurant-images-v2-1.json、-2.json、… 每片 ~600KB，追加式打包（v1.0.3 起换新通道）；
+// - 云端存 restaurant-images-v3-1.json、-2.json、… 每片 ~600KB，追加式打包（v1.0.4 起换新通道）；
 // - 追加式分片：已上传的片内容尽量不变，新增图片通常只 PUT 最后一片或新建一片，写放大最小；
 // - 上传前与云端全部分片做并集合并（本机图优先，已删物料图清理），再重新分片；
 // - 与云端逐片对比，从第一处差异开始 PUT，多余的尾片 DELETE；
