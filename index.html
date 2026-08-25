@@ -550,7 +550,7 @@
 <body>
 <div class="container">
 <div class="header">
-    <h1 id="header-title">饭店原材料库存管理系统</h1><span id="app-version" style="font-size:13px;opacity:0.9;margin-left:10px;font-weight:400;">v1.0.1</span>
+    <h1 id="header-title">饭店原材料库存管理系统</h1><span id="app-version" style="font-size:13px;opacity:0.9;margin-left:10px;font-weight:400;">v1.0.2</span>
     <div class="header-right">
         <div class="user-settings">
             <input type="text" id="user-name-input" placeholder="输入姓名...">
@@ -1007,6 +1007,8 @@
 
 <script>
 
+// v1.0.2：饭店版增加一次性清空逻辑——检测到升级标记缺失时，清空本机 restaurant-* 缓存并写入
+//         带 resetAt 的空数据，确保克隆初期误同步的奶茶店数据被彻底丢弃。
 // v1.0.1：饭店版定制——删除「配件」「自采」分类，「俄罗斯本地」采购地筛选，
 //         「月/季/年出库」标签页；清空旧数据（克隆时被同步进来的奶茶店数据）。
 // v1.0.0：饭店原材料库存管理系统（克隆自主站 v3.12.9，数据与奶茶店主站完全隔离）。
@@ -3930,6 +3932,31 @@ function normalizeAllOutboundDepartments() {
 
 // ========== 事件绑定 ==========
 document.addEventListener('DOMContentLoaded', function() {
+    // v1.0.2 一次性清空：克隆初期误同步了奶茶店主站数据，
+    // 此标记保证所有设备在升级到 v1.0.2 时清空本地 restaurant-* 缓存，
+    // 并写入带 resetAt 的空数据，让云端旧记录按 lastModified 被过滤丢弃。
+    var RESET_MARKER = 'restaurant-reset-v1.0.2';
+    if (localStorage.getItem(RESET_MARKER) !== '1') {
+        var keysToRemove = [];
+        for (var _ri = 0; _ri < localStorage.length; _ri++) {
+            var _rk = localStorage.key(_ri);
+            if (_rk && _rk.indexOf('restaurant-') === 0 && _rk !== RESET_MARKER) {
+                keysToRemove.push(_rk);
+            }
+        }
+        keysToRemove.forEach(function(_rk) { localStorage.removeItem(_rk); });
+        var _now = Date.now();
+        var _emptyResetData = {
+            inventory: [], inboundHistory: [], outboundHistory: [], operationLogs: [],
+            deletedCodes: [], deletedAt: {}, deletedHist: {}, dataVersion: 0,
+            presetVersion: PRESET_VERSION, warehousePassword: 'admin123', resetAt: _now
+        };
+        localStorage.setItem('restaurant-warehouse-data', JSON.stringify(_emptyResetData));
+        localStorage.setItem('restaurant-warehouse-data-new', JSON.stringify(_emptyResetData));
+        localStorage.setItem(RESET_MARKER, '1');
+        console.log('[Restaurant] v1.0.2 one-time reset: cleared ' + keysToRemove.length + ' keys, resetAt=' + _now);
+    }
+
     // 启动阶段禁止 saveToGist 上传，避免本地旧数据污染 Gist
     _gistLoading = true;
     const loaded = loadAllData();
