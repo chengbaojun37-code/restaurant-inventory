@@ -4,7 +4,7 @@
  *  - 同源静态资源：网络优先，成功后更新缓存（避免旧缓存一直生效）
  *  - 跨域请求(Gist API)：一律放行网络，不做缓存（数据实时同步）
  */
-const CACHE = 'restaurant-cache-v3'; // v1.0.2 增加一次性清空逻辑，彻底丢弃误同步的旧数据
+const CACHE = 'restaurant-cache-v4'; // v1.0.3：presetVersion 防火墙 + 新一轮一次性清空，根治奶茶店数据回流
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', function(e) {
