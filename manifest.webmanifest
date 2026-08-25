@@ -1,0 +1,26 @@
+{
+  "name": "饭店原材料库存管理系统",
+  "short_name": "饭店库存",
+  "description": "饭店原材料库存出入库管理（手机/电脑/网页三端同步，与奶茶店主站数据隔离）",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f5f6fa",
+  "theme_color": "#3498db",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
